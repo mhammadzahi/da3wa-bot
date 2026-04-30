@@ -5,6 +5,8 @@ from datetime import datetime
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 
 from dotenv import load_dotenv
 import os
@@ -19,17 +21,21 @@ TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
     raise ValueError("❌ BOT_TOKEN not found! Please create a .env file with your bot token.")
 
-# Initialize bot and dispatcher
-bot = Bot(token=TOKEN, parse_mode="HTML")
+# ==================== FIXED BOT INITIALIZATION ====================
+bot = Bot(
+    token=TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+)
+
 dp = Dispatcher()
 
 # Logging
 logging.basicConfig(level=logging.INFO)
 
-# In-memory storage (user settings)
-user_data = {}  # {user_id: {"city": str, "country": str, "method": int}}
+# In-memory storage
+user_data = {}  
 
-# Create Aladhan client (synchronous for simplicity)
+# Aladhan client
 client = aladhan.Client()
 
 
@@ -91,7 +97,7 @@ async def handle_location_input(message: types.Message):
             reply_markup=get_main_keyboard()
         )
     except Exception:
-        await message.answer("❌ Invalid format. Please send as: City, Country")
+        await message.answer("❌ Invalid format. Please send as: `City, Country`")
 
 
 # ====================== TODAY'S PRAYER TIMES ======================
@@ -110,7 +116,11 @@ async def today_prayer_times(message: types.Message):
     await message.answer("⏳ Fetching prayer times...")
 
     try:
-        timings = client.get_timings_by_city(city=city, country=country, method=data.get("method", 5))
+        timings = client.get_timings_by_city(
+            city=city, 
+            country=country, 
+            method=data.get("method", 5)
+        )
 
         text = f"🕌 <b>Prayer Times for Today</b>\n\n"
         text += f"📍 {city}" + (f", {country}" if country else "") + "\n\n"
@@ -125,22 +135,20 @@ async def today_prayer_times(message: types.Message):
         await message.answer(text)
     except Exception as e:
         logging.error(e)
-        await message.answer("❌ Failed to fetch prayer times. Please check your location or try again later.")
+        await message.answer("❌ Failed to fetch prayer times. Please check the city name or try again.")
 
 
-# ====================== NEXT PRAYER (Basic) ======================
+# ====================== NEXT PRAYER & SETTINGS ======================
 @dp.message(lambda msg: msg.text == "🕒 Next Prayer")
 async def next_prayer(message: types.Message):
     await message.answer("🕒 Next Prayer feature is coming soon In sha Allah...")
 
-
-# ====================== SETTINGS (Placeholder) ======================
 @dp.message(lambda msg: msg.text == "⚙️ Settings")
 async def settings(message: types.Message):
-    await message.answer("⚙️ Settings menu is under development.\n\n"
-                         "Soon you will be able to change calculation method (MWL, Egyptian, etc.).")
+    await message.answer("⚙️ Settings menu is under development.")
 
 
 if __name__ == "__main__":
     print("🚀 Da3wa Bot is starting...")
     asyncio.run(dp.start_polling(bot))
+    
