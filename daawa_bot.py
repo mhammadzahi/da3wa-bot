@@ -15,7 +15,7 @@ load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 
 if not TOKEN:
-    raise ValueError("❌ BOT_TOKEN not found! Add it to .env file.")
+    raise ValueError("❌ BOT_TOKEN not found in .env file!")
 
 bot = Bot(
     token=TOKEN,
@@ -48,17 +48,16 @@ async def start(message: types.Message):
     )
 
 
-# ==================== LOCATION ====================
 @dp.message(F.text == "📍 Set My Location")
 async def ask_location(message: types.Message):
     await message.answer(
-        "📍 Send city and country:\n\n"
-        "<code>Casablanca, Morocco</code>",
+        "📍 Send your city and country:\n\n"
+        "<code>Casablanca, Morocco</code>\n"
+        "<code>Dubai, UAE</code>",
         reply_markup=ReplyKeyboardRemove()
     )
 
 
-# ==================== PRAYER TIMES (Must be before general handler) ====================
 @dp.message(F.text == "🕌 Today's Prayer Times")
 async def show_prayer_times(message: types.Message):
     user_id = message.from_user.id
@@ -74,22 +73,22 @@ async def show_prayer_times(message: types.Message):
     await message.answer("⏳ Fetching prayer times...")
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:   # ← This fixes the 302
             resp = await client.get(
                 "https://api.aladhan.com/v1/timingsByCity",
                 params={
                     "city": city,
                     "country": country,
-                    "method": 5,
-                    "school": 0
+                    "method": 5,      # Muslim World League
+                    "school": 0       # Shafi
                 },
-                timeout=10.0
+                timeout=12.0
             )
-            resp.raise_for_status()
+
             data_json = resp.json()
 
             if data_json.get("code") != 200:
-                raise Exception("API returned error")
+                raise Exception(f"API Error: {data_json.get('status')}")
 
             timings = data_json["data"]["timings"]
 
@@ -103,31 +102,36 @@ async def show_prayer_times(message: types.Message):
             await message.answer(text)
 
     except Exception as e:
-        logging.error(f"Error fetching prayer times: {e}")
-        await message.answer("❌ Failed to fetch prayer times.\nTry a major city like Casablanca.")
+        logging.error(f"Prayer time error: {e}")
+        await message.answer(
+            "❌ Could not fetch prayer times.\n\n"
+            "Try these major cities:\n"
+            "• Casablanca, Morocco\n"
+            "• Rabat, Morocco\n"
+            "• Dubai, UAE\n"
+            "• London, United Kingdom"
+        )
 
 
-# ==================== OTHER BUTTONS ====================
 @dp.message(F.text == "🕒 Next Prayer")
 async def next_prayer(message: types.Message):
     await message.answer("🕒 Next Prayer feature coming soon In sha Allah...")
+
 
 @dp.message(F.text == "⚙️ Settings")
 async def settings(message: types.Message):
     await message.answer("⚙️ Settings coming soon...")
 
 
-# ==================== GENERAL HANDLER (MUST BE LAST) ====================
+# General handler for location (MUST stay last)
 @dp.message()
 async def handle_location_input(message: types.Message):
     user_id = message.from_user.id
     text = message.text.strip()
 
-    # Ignore button presses
     if text in ["🕌 Today's Prayer Times", "🕒 Next Prayer", "📍 Set My Location", "⚙️ Settings"]:
         return
 
-    # Treat as location input
     try:
         if "," in text:
             city, country = [x.strip() for x in text.split(",", 1)]
