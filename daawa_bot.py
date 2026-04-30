@@ -16,7 +16,7 @@ load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 
 if not TOKEN:
-    raise ValueError("❌ Please put your BOT_TOKEN in the .env file!")
+    raise ValueError("❌ BOT_TOKEN not found in .env file!")
 
 bot = Bot(
     token=TOKEN,
@@ -45,52 +45,22 @@ def get_main_keyboard():
 async def start(message: types.Message):
     await message.answer(
         "🤲 <b>Assalamu alaikum wa rahmatullah</b>\n\n"
-        "Welcome to <b>Da3wa Bot</b>\nYour Salat Reminder Assistant",
+        "Welcome to <b>Da3wa Bot</b> — Your Salat Reminder",
         reply_markup=get_main_keyboard()
     )
 
 
-# Set Location Button
+# 1. Set Location Button
 @dp.message(F.text == "📍 Set My Location")
 async def ask_location(message: types.Message):
     await message.answer(
-        "📍 Send city and country:\n\n"
+        "📍 Please send your city and country:\n\n"
         "<code>Khouribga, Morocco</code>",
         reply_markup=ReplyKeyboardRemove()
     )
 
 
-# Handle location input
-@dp.message()
-async def handle_text(message: types.Message):
-    user_id = message.from_user.id
-    text = message.text.strip()
-
-    # Skip if it's a main menu button
-    if text in ["🕌 Today's Prayer Times", "🕒 Next Prayer", "📍 Set My Location", "⚙️ Settings"]:
-        return
-
-    # Process as location
-    try:
-        if "," in text:
-            city, country = [x.strip() for x in text.split(",", 1)]
-        else:
-            city = text
-            country = ""
-
-        user_data[user_id] = {"city": city, "country": country, "method": 5}
-
-        await message.answer(
-            f"✅ <b>Location Saved!</b>\n\n"
-            f"📍 City: <b>{city}</b>\n"
-            f"🌍 Country: <b>{country or 'Not specified'}</b>",
-            reply_markup=get_main_keyboard()
-        )
-    except:
-        await message.answer("❌ Please send in format: City, Country")
-
-
-# Today's Prayer Times - FIXED
+# 2. Today's Prayer Times Button  ← This must come BEFORE the general handler
 @dp.message(F.text == "🕌 Today's Prayer Times")
 async def show_prayer_times(message: types.Message):
     user_id = message.from_user.id
@@ -108,7 +78,7 @@ async def show_prayer_times(message: types.Message):
     try:
         timings = client.get_timings_by_city(city=city, country=country, method=5)
 
-        response = f"🕌 <b>Prayer Times Today</b>\n\n"
+        response = f"🕌 <b>Prayer Times for Today</b>\n\n"
         response += f"📍 {city}" + (f", {country}" if country else "") + "\n\n"
 
         prayers = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"]
@@ -121,11 +91,11 @@ async def show_prayer_times(message: types.Message):
         await message.answer(response)
 
     except Exception as e:
-        logging.error(f"Error: {e}")
-        await message.answer("❌ Sorry, could not fetch prayer times.\nTry again or check city name.")
+        logging.error(e)
+        await message.answer("❌ Failed to fetch prayer times.\nPlease check the city name.")
 
 
-# Other buttons
+# 3. Other buttons
 @dp.message(F.text == "🕒 Next Prayer")
 async def next_prayer(message: types.Message):
     await message.answer("🕒 Next Prayer feature coming soon In sha Allah...")
@@ -135,6 +105,37 @@ async def settings(message: types.Message):
     await message.answer("⚙️ Settings coming soon...")
 
 
+# 4. General handler for location input - MUST BE LAST
+@dp.message()
+async def handle_location_input(message: types.Message):
+    user_id = message.from_user.id
+    text = message.text.strip()
+
+    # Ignore main menu buttons
+    if text in ["🕌 Today's Prayer Times", "🕒 Next Prayer", "📍 Set My Location", "⚙️ Settings"]:
+        return
+
+    # Process location
+    try:
+        if "," in text:
+            city, country = [x.strip() for x in text.split(",", 1)]
+        else:
+            city = text
+            country = ""
+
+        user_data[user_id] = {"city": city, "country": country, "method": 5}
+
+        await message.answer(
+            f"✅ <b>Location Saved!</b>\n\n"
+            f"📍 City: <b>{city}</b>\n"
+            f"🌍 Country: <b>{country or 'Not specified'}</b>",
+            reply_markup=get_main_keyboard()
+        )
+    except:
+        await message.answer("❌ Please send in this format:\n<code>City, Country</code>")
+
+
 if __name__ == "__main__":
-    print("🚀 Da3wa Bot started successfully!")
+    print("🚀 Da3wa Bot is running...")
     asyncio.run(dp.start_polling(bot))
+    
