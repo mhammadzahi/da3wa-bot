@@ -1,0 +1,4 @@
+aiogram==3.13.0
+aladhan.py
+python-dotenv
+apscheduler
